@@ -14,7 +14,7 @@ pub struct PartialTrip {
 }
 
 // get a vector of shape points from a vector of partial trips
-pub fn get_shape_points_from_trips(trips: &Vec<PartialTrip>) -> Vec<ShapePoint> {
+pub fn get_shape_points_from_trips(trips: &[PartialTrip]) -> Vec<ShapePoint> {
     let mut shape_points = Vec::new();
     for trip in trips {
         for shape_point in &trip.shape_points {
@@ -28,11 +28,11 @@ pub fn get_shape_points_from_trips(trips: &Vec<PartialTrip>) -> Vec<ShapePoint> 
 pub struct Stop {
     trip_id: String,
     pub stop_id: String,
-    stop_name: String,
-    arrival_time: String,
-    departure_time: String,
-    lat: f64,
-    lon: f64,
+    pub stop_name: String,
+    pub arrival_time: String,
+    pub departure_time: String,
+    pub lat: f64,
+    pub lon: f64,
 }
 
 #[derive(Clone, Debug)]

@@ -4,6 +4,7 @@ use simulation_curator::cell_data;
 use simulation_curator::nes_simulation;
 use simulation_curator::nes_simulation::create_single_fog_layer_topology_from_cell_data;
 use clap::Parser;
+use simulation_curator::gtfs::{parse_duration, PartialTrip};
 
 /// Program to generate topology change events
 #[derive(Parser, Debug)]
@@ -61,6 +62,17 @@ struct Args {
     #[arg(short, long, default_value = "LTE")]
     radio: String,
 
+    /// The amoount of physical sources corresponding to a single logical source
+    #[arg(long, default_value = None)]
+    source_group_size: Option<u16>,
+
+    /// Path to the file where source_groups.json will be produced
+    #[arg(long, default_value = "source_groups.json")]
+    source_group_path: String,
+
+    /// Path to the file where source_groups_geo.json will be produced
+    #[arg(long, default_value = "source_groups_geo.json")]
+    source_group_geo_path: String,
 }
 
 fn main() -> Result<()> {
@@ -102,7 +114,7 @@ fn main() -> Result<()> {
     // Find the cell towers used for connection
     let network_id = vec![2, 4, 9]; // For vodafone
     let beginning_of_2024 = 1704067200;
-    let cells = cell_data::get_closest_cells_from_csv(&(args.open_cell_id_data_loc), &(args.radio), 262, &network_id, 0, beginning_of_2024, args.min_samples, partial_trips);
+    let cells = cell_data::get_closest_cells_from_csv(&(args.open_cell_id_data_loc), &(args.radio), 262, &network_id, 0, beginning_of_2024, args.min_samples, &partial_trips);
     println!("cell towers {}", cells.radio_cells.len());
     let gj = cells.to_geojson();
 
@@ -116,10 +128,27 @@ fn main() -> Result<()> {
 
     let batch_interval = std::time::Duration::from_secs(args.batch_interval_size_in_seconds);
     let batch_gap = std::time::Duration::from_secs(args.batch_frequency_in_seconds);
-    let simulated_reconnects = nes_simulation::SimulatedReconnects::from_topology_and_cell_data(topology, cells, cell_id_to_node_id, start_time, batch_interval.into(), batch_gap.into());
+    let (simulated_reconnects, trip_to_node, source_groups) = nes_simulation::SimulatedReconnects::from_topology_and_cell_data(topology, cells, cell_id_to_node_id, start_time, batch_interval.into(), batch_gap.into(), args.source_group_size);
     println!("topology updates: {}", simulated_reconnects.topology_updates.len());
     let json_string = serde_json::to_string_pretty(&simulated_reconnects).unwrap();
     std::fs::write(args.topology_updates_path, json_string).unwrap();
+
+    if let Some(source_groups) = source_groups {
+        let json_string = serde_json::to_string_pretty(&source_groups).unwrap();
+        std::fs::write(args.source_group_path, json_string).unwrap();
+
+        //iterate over the trips and print the first stop and the corresponding source group
+        for trip in partial_trips {
+            // dbg!(&trip.stops);
+            let node_id = trip_to_node.get(&trip.trip_id).unwrap();
+            let source_group = source_groups.get(node_id).unwrap();
+            if let Some(first_stop) = trip.stops.first() {
+                println!("trip: {}, first stop departure: {}, first_stop_name: {} source group: {}", trip.trip_id, first_stop.departure_time, first_stop.stop_name, source_group);
+            } else {
+                println!("trip: {}, source group: {}", trip.trip_id, source_group);
+            }
+        }
+    }
 
     Ok(())
 }

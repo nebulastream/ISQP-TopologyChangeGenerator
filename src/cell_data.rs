@@ -5,7 +5,7 @@ use geojson::{Feature, FeatureCollection, GeoJson, Geometry, Value};
 use polars::datatypes::DataType;
 use polars_plan::prelude::col;
 use crate::geo_utils;
-use crate::gtfs::{get_shape_points_from_trips, partial_trips_to_feature_collection, PartialTrip, ShapePoint};
+use crate::gtfs::{get_shape_points_from_trips, parse_duration, partial_trips_to_feature_collection, PartialTrip, ShapePoint};
 
 //use polars to read a csv of cell data
 pub fn read_cell_data_csv(file_path: &str) -> PolarsResult<DataFrame, > {
@@ -34,12 +34,13 @@ pub fn read_cell_data_csv(file_path: &str) -> PolarsResult<DataFrame, > {
 }
 
 //todo: move to additional sim_data module
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TripAndCellData {
     pub trip: PartialTrip,
     //todo: make typedefs for the identifiers
     pub cell_data: HashMap<(String, u64), (u64, u64)>,
 }
+
 
 #[derive(Debug)]
 pub struct MultiTripAndCellData {
@@ -48,6 +49,7 @@ pub struct MultiTripAndCellData {
 }
 
 impl MultiTripAndCellData {
+
     pub fn to_geojson(&self) -> GeoJson {
         let features = self.to_features();
         GeoJson::FeatureCollection(FeatureCollection {
@@ -94,11 +96,11 @@ impl MultiTripAndCellData {
 }
 
 
-pub fn get_closest_cells_from_csv(file_path: &str, radio: &str, mcc: u32, mncs: &Vec<u32>, start_time: u64, updated: u64, sample_count: u64, trips: Vec<PartialTrip>) -> MultiTripAndCellData {
+pub fn get_closest_cells_from_csv(file_path: &str, radio: &str, mcc: u32, mncs: &Vec<u32>, start_time: u64, updated: u64, sample_count: u64, trips: &[PartialTrip]) -> MultiTripAndCellData {
     let mut towers = HashMap::new();
 
     // get the shape points from the list of trips
-    let shape_points = get_shape_points_from_trips(&trips);
+    let shape_points = get_shape_points_from_trips(trips);
 
     //read and filter cell data
     add_cell_data(file_path, radio, mcc, mncs, start_time, updated, sample_count, &shape_points, &mut towers);
@@ -108,7 +110,7 @@ pub fn get_closest_cells_from_csv(file_path: &str, radio: &str, mcc: u32, mncs: 
         let mut shape_id_to_cell_id = HashMap::new();
         find_closest_towers(&shape_points, &mut towers, &mut shape_id_to_cell_id);
         let trip_and_cell_data = TripAndCellData {
-            trip,
+            trip: trip.clone(),
             cell_data: shape_id_to_cell_id,
         };
         trips_and_cells.push(trip_and_cell_data);

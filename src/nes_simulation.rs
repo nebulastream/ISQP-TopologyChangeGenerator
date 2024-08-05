@@ -2,10 +2,12 @@ use std::collections::{BTreeMap, HashMap};
 use std::{fs, time};
 use std::ops::Sub;
 use std::time::Duration;
+use geojson::GeoJson;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use crate::cell_data::{MultiTripAndCellData, RadioCell};
 use serde_with::DurationMilliSeconds;
+use crate::gtfs::{parse_duration, PartialTrip, Stop};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct FixedTopology {
@@ -47,7 +49,59 @@ pub struct SimulatedReconnects {
 }
 
 impl SimulatedReconnects {
-    pub fn from_topology_and_cell_data(topology: FixedTopology, mut cell_data: MultiTripAndCellData, cell_id_to_node_id: HashMap<(u64, u64), u64>, start_time: Duration, batch_interval: Option<Duration>, batch_gap: Option<Duration>) -> SimulatedReconnects {
+    ///create a geojson containing the first stop of all trips with the source groups having the 
+    /// same color
+    // pub fn to_geojson(trips: &[PartialTrip], trip_to_node: &HashMap<String, u64>, node_to_source: HashMap<u64, u64>) -> GeoJson { let mut features = vec![];
+    //     for trip in trips {
+    //         let node_id = trip_to_node.get(&trip.trip_id).unwrap();
+    //         let source_id = node_to_source.get(node_id).unwrap();
+    //         let mut properties = geojson::JsonObject::new();
+    //         let last_shap_point = trip.shape_points.iter().max_by(|).unwrap();
+    //         properties.insert("marker-color".to_string(), serde_json::Value::String(color.to_string()));
+    //         properties.insert("node id".to_string(), serde_json::Value::Number(serde_json::Number::from(*node_id)));
+    //         properties.insert("source id".to_string(), serde_json::Value::Number(serde_json::Number::from(*source_id)));
+    //         let feature = geojson::Feature {
+    //             bbox: None,
+    //             geometry: Some(geojson::Geometry::new(geojson::Value::Point(vec![stop.lon, stop.lat]))),
+    //             id: None,
+    //             properties: Some(properties),
+    //             foreign_members: None,
+    //         };
+    //         features.push(feature);
+    //     }
+    //     GeoJson::FeatureCollection(geojson::FeatureCollection {
+    //         bbox: None,
+    //         features,
+    //         foreign_members: None,
+    //     })
+    // }
+    
+    
+    ///create a placement of logical sources by grouping the trips of a line into no overlapping 
+    ///groups of vehicles that directly follow each other on the track
+    pub fn source_placement_from_trips(trips: &[PartialTrip], group_size: u16) -> HashMap<String, u64> {
+        //create a vactor of references to the trips
+        // let mut trip_refs: Vec<&PartialTrip> = trips.iter().collect();
+        let mut trips: Vec<PartialTrip> = trips.iter().cloned().collect();
+        //sort the trips by the start time
+        for mut trip in trips.iter_mut() {
+            trip.shape_points.sort_by(|a, b| a.time.cmp(&b.time));
+        }
+        trips.sort_by(|a, b| a.shape_points.first().unwrap().shape_pt_sequence.cmp(&b.shape_points.first().unwrap().shape_pt_sequence));
+
+        //create a hashmap to store the mapping from source ids to trip ids
+        let mut source_placement = HashMap::new();
+        //iterate over the trips
+        for (i, trip) in trips.iter().enumerate() {
+            //get the source id
+            let source_id = i as u64 / group_size as u64;
+            //insert the source id and the trip id into the hashmap
+            source_placement.insert(trip.trip_id.clone(), source_id);
+        }
+        source_placement
+    }
+    pub fn from_topology_and_cell_data(topology: FixedTopology, mut cell_data: MultiTripAndCellData, cell_id_to_node_id: HashMap<(u64, u64), u64>, start_time: Duration, batch_interval: Option<Duration>, batch_gap: Option<Duration>, group_size: Option<u16>) -> (Self, HashMap<String, u64>,  Option<HashMap<u64, u64>>) {
+        let mut trip_to_node = HashMap::new();
         let mut initial_parents = vec![];
         let mut topology_update_map = BTreeMap::new();
         let mut child_id = topology.nodes.keys().max().unwrap() + 1;
@@ -56,8 +110,16 @@ impl SimulatedReconnects {
 
         cell_data.trips.sort_by(|a, b| a.trip.trip_id.cmp(&b.trip.trip_id));
 
+        let mut source_placement_maps = match group_size {
+            Some(group_size) => {
+                let trip_vec: Vec<PartialTrip> = cell_data.trips.iter().map(|x| x.trip.clone()).collect();
+                Some((SimulatedReconnects::source_placement_from_trips(&trip_vec, group_size), HashMap::new()))
+            },
+            None => None,
+        };
 
         for mut trip in cell_data.trips {
+            trip_to_node.insert(trip.trip.trip_id.clone(), child_id);
             let mut current_batch_interval_start = None;
             let mut current_batch_timestamp = None;
             // let mut batch_gap = None;
@@ -157,9 +219,23 @@ impl SimulatedReconnects {
                 update_at_time.events.push(rem);
                 update_at_time.events.push(batched_add.unwrap());
             }
+            
+            if let Some((trip_to_source, node_to_source)) = &mut source_placement_maps {
+                let source_id = trip_to_source.get(&trip.trip.trip_id).unwrap();
+                node_to_source.insert(child_id, *source_id);
+            }
+            
+            
+            
             child_id += 1;
         }
-        SimulatedReconnects { initial_parents, topology_updates: topology_update_map.into_values().collect() }
+        let source_mapping = if let Some((_, node_to_source)) = &source_placement_maps {
+            Some(node_to_source.clone())
+        } else {
+            None
+        };
+
+        (SimulatedReconnects { initial_parents, topology_updates: topology_update_map.into_values().collect() }, trip_to_node, source_mapping)
     }
 }
 
