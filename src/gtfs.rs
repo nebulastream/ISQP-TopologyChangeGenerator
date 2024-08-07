@@ -7,14 +7,14 @@ use geo::VincentyDistance;
 use crate::colors;
 
 #[derive(Clone, Debug)]
-pub struct PartialTrip {
-    pub trip_id: String,
+pub struct PartialBlock {
+    pub block_id: String,
     pub stops: Vec<Stop>,
     pub shape_points: Vec<ShapePoint>,
 }
 
 // get a vector of shape points from a vector of partial trips
-pub fn get_shape_points_from_trips(trips: &[PartialTrip]) -> Vec<ShapePoint> {
+pub fn get_shape_points_from_trips(trips: &[PartialBlock]) -> Vec<ShapePoint> {
     let mut shape_points = Vec::new();
     for trip in trips {
         for shape_point in &trip.shape_points {
@@ -100,7 +100,7 @@ impl ShapePoint {
 
 
 //convert a vector of partial trips to geojson
-pub fn to_geojson(trips: &Vec<PartialTrip>) -> GeoJson {
+pub fn to_geojson(trips: &Vec<PartialBlock>) -> GeoJson {
     let features = partial_trips_to_feature_collection(trips);
     let collection = geojson::FeatureCollection {
         bbox: None,
@@ -111,7 +111,7 @@ pub fn to_geojson(trips: &Vec<PartialTrip>) -> GeoJson {
 }
 
 //todo: rename
-pub fn partial_trips_to_feature_collection(trips: &Vec<PartialTrip>) -> Vec<Feature> {
+pub fn partial_trips_to_feature_collection(trips: &Vec<PartialBlock>) -> Vec<Feature> {
     let mut stops = Vec::new();
     for trip in trips {
         for stop in &trip.stops {
@@ -186,7 +186,7 @@ pub fn parse_duration(time_str: &str) -> rusqlite::Result<Duration, Box<dyn std:
 }
 
 //read the stops for a trip
-pub fn read_stops_for_trip(block_id: String, db: &Connection, start_time: Duration, end_time: Duration) -> rusqlite::Result<Option<PartialTrip>, Box<dyn std::error::Error>> {
+pub fn read_stops_for_block(block_id: String, db: &Connection, start_time: Duration, end_time: Duration) -> rusqlite::Result<Option<PartialBlock>, Box<dyn std::error::Error>> {
     println!("reading stops for block {}", block_id);
     let mut stmt = db.prepare("SELECT DISTINCT trip_id FROM trips WHERE trips.block_id=:block_id")?;
     let trip_ids = stmt.query_map(named_params! {":block_id": block_id}, |row| {
@@ -380,8 +380,8 @@ pub fn read_stops_for_trip(block_id: String, db: &Connection, start_time: Durati
 
     Ok(
         Some(
-            PartialTrip {
-                trip_id: block_id,
+            PartialBlock {
+                block_id: block_id,
                 stops: all_stops_in_range,
                 shape_points: all_shape_points,
             }
