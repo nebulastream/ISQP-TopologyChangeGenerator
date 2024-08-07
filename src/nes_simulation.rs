@@ -49,7 +49,7 @@ pub struct SimulatedReconnects {
 }
 
 impl SimulatedReconnects {
-    ///create a geojson containing the first stop of all trips with the source groups having the 
+    ///create a geojson containing the first stop of all trips with the source groups having the
     /// same color
     // pub fn to_geojson(trips: &[PartialTrip], trip_to_node: &HashMap<String, u64>, node_to_source: HashMap<u64, u64>) -> GeoJson { let mut features = vec![];
     //     for trip in trips {
@@ -75,9 +75,9 @@ impl SimulatedReconnects {
     //         foreign_members: None,
     //     })
     // }
-    
-    
-    ///create a placement of logical sources by grouping the trips of a line into no overlapping 
+
+
+    ///create a placement of logical sources by grouping the trips of a line into no overlapping
     ///groups of vehicles that directly follow each other on the track
     pub fn source_placement_from_trips(trips: &[PartialTrip], group_size: u16) -> HashMap<String, u64> {
         //create a vactor of references to the trips
@@ -100,7 +100,7 @@ impl SimulatedReconnects {
         }
         source_placement
     }
-    pub fn from_topology_and_cell_data(topology: FixedTopology, mut cell_data: MultiTripAndCellData, cell_id_to_node_id: HashMap<(u64, u64), u64>, start_time: Duration, batch_interval: Option<Duration>, batch_gap: Option<Duration>, group_size: Option<u16>) -> (Self, HashMap<String, u64>,  Option<HashMap<u64, u64>>) {
+    pub fn from_topology_and_cell_data(topology: FixedTopology, mut cell_data: MultiTripAndCellData, cell_id_to_node_id: HashMap<(u64, u64), u64>, start_time: Duration, batch_interval: Option<Duration>, batch_gap: Option<Duration>, group_size: Option<u16>) -> (Self, HashMap<String, u64>,  Option<HashMap<u64, Vec<u64>>>) {
         let mut trip_to_node = HashMap::new();
         let mut initial_parents = vec![];
         let mut topology_update_map = BTreeMap::new();
@@ -219,18 +219,19 @@ impl SimulatedReconnects {
                 update_at_time.events.push(rem);
                 update_at_time.events.push(batched_add.unwrap());
             }
-            
+
             if let Some((trip_to_source, node_to_source)) = &mut source_placement_maps {
                 let source_id = trip_to_source.get(&trip.trip.trip_id).unwrap();
                 node_to_source.insert(child_id, *source_id);
             }
-            
-            
-            
+
+
+
             child_id += 1;
         }
         let source_mapping = if let Some((_, node_to_source)) = &source_placement_maps {
-            Some(node_to_source.clone())
+            // Some(node_to_source.clone())
+            Some(node_to_source.clone().into_iter().map(|(k, v)| (k, vec![v])).collect())
         } else {
             None
         };

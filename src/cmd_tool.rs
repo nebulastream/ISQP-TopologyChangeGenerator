@@ -143,9 +143,9 @@ fn main() -> Result<()> {
             let node_id = trip_to_node.get(&trip.trip_id).unwrap();
             let source_group = source_groups.get(node_id).unwrap();
             if let Some(first_stop) = trip.stops.first() {
-                println!("trip: {}, first stop departure: {}, first_stop_name: {} source group: {}", trip.trip_id, first_stop.departure_time, first_stop.stop_name, source_group);
+                println!("trip: {}, first stop departure: {}, first_stop_name: {} source group: {}", trip.trip_id, first_stop.departure_time, first_stop.stop_name, source_group.first().unwrap());
             } else {
-                println!("trip: {}, source group: {}", trip.trip_id, source_group);
+                println!("trip: {}, source group: {}", trip.trip_id, source_group.first().unwrap());
             }
         }
     }
