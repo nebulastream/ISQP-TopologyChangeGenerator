@@ -30,6 +30,9 @@ Afterwards, NebulaStream utilizes a combination of fine-grained reconfiguration 
 To show the effect of different strategies, we report the overall processing latency of running queries as trains move on the track. 
 To this end, we compress the 2 hour schedule to a 2 minute window to speed up the rate of disconnection and reconnection. 
 Please note, that in real world, due to the presence of more lines, we expect a high amount of reconnects without the need of compressing the timeline. 
+Here, **NES** is the state-of-the-art strategy of completely un-deploying the running query and performing serial holistic 
+re-placement and re-deployment of all un-deployed queries based on latest state of the topology. 
+**HSQP** is our improved baseline where we perform holistic re-placement and re-deployment just like for __NES__. However, all affected queries are processed in concurrent.
 
 ![alt text](./Experiments/Line-S41/ProcessingTimeLatency.png "Impact on Processing Latency")
 
