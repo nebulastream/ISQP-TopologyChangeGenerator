@@ -27,9 +27,11 @@ This results in frequent interruption of running queries as their operators need
 To reduce the interruption time, NebulaStream uses a greedy but fast operator re-placement strategy, called as ISQP in the system. 
 The strategy identifies the increment of operators that need re-placement and concurrently process the affected operator increments. 
 Afterwards, NebulaStream utilizes a combination of fine-grained reconfiguration protocol and buffering at the upstream nodes to quickly resume the interrupted queries.
-To show the effect of different strategies, we report the overall processing latency of running queries as trains move on the track.
+To show the effect of different strategies, we report the overall processing latency of running queries as trains move on the track. 
+To this end, we compress the 2 hour schedule to a 2 minute window to speed up the rate of disconnection and reconnection. 
+Please note, that in real world, due to the presence of more lines, we expect a high amount of reconnects without the need of compressing the timeline. 
 
-![alt text](./Experiments/Line-S41/ProcessingTimeLatency.png "Impact on Processing Latency"){width=50%}
+![alt text](./Experiments/Line-S41/ProcessingTimeLatency.png "Impact on Processing Latency")
 
 # Pre-Processing Steps
 
