@@ -24,7 +24,7 @@ The below image shows the train trajectory with green line and cell towers with 
 We select the schedule for 2 hour window on a weekday. During this time window, the trains move from one station to another carrying passenger.
 As they move along the track they disconnect from a cell tower and reconnect to the neighboring cell tower.
 This results in frequent interruption of running queries as their operators need to be re-deployed based on where the data sources (trains) get re-connected after disconnection. 
-To reduce the interruption time, NebulaStream uses a greedy but fast operator re-placement strategy, called as ISQP in the system. 
+To reduce the interruption time, NebulaStream uses a greedy but fast operator re-placement strategy called **ISQP**. 
 The strategy identifies the increment of operators that need re-placement and concurrently process the affected operator increments. 
 Afterwards, NebulaStream utilizes a combination of fine-grained reconfiguration protocol and buffering at the upstream nodes to quickly resume the interrupted queries.
 To show the effect of different strategies, we report the overall processing latency of running queries as trains move on the track. 
